@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Health Condition Detection</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        body {
+            background-color: #f7f7f7;
+            font-family: Arial, sans-serif;
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .container {
+            width: 80%;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .result {
+            text-align: center;
+            margin-top: 30px;
+            font-size: 24px;
+        }
+
+        .result.high {
+            color: red;
+            font-weight: bold;
+        }
+
+        .result.medium {
+            color: orange;
+            font-weight: bold;
+        }
+
+        .result.low {
+            color: green;
+            font-weight: bold;
+        }
+
+        .charts {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-around;
+            margin-top: 50px;
+        }
+
+        .chart {
+            width: 45%;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            padding: 10px;
+            background-color: white;
+            margin-bottom: 20px;
+        }
+
+        .chart h3 {
+            text-align: center;
+            color: #007bff;
+        }
+
+        .prediction {
+            text-align: center;
+            font-size: 20px;
+            color: #007bff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Health Condition Detection</h1>
+
+        <!-- Recording UI -->
+        <div style="text-align: center; margin-bottom: 20px;">
+            <button type="button" id="startBtn">Start Recording</button>
+            <button type="button" id="stopBtn" disabled>Stop Recording</button>
+            <p id="recordingStatus"></p>
+        </div>
+
+        <form method="POST" enctype="multipart/form-data" id="uploadForm">
+            <input type="file" name="file" id="fileInput" required>
+            <button type="submit"><b>Upload Audio</b></button>
+        </form>
+
+        {% if result %}
+            <div class="result 
+                {% if prediction_prob >= 70 %}high
+                {% elif prediction_prob >= 51 %}medium
+                {% else %}low
+                {% endif %}">
+                <p>{{ result }}</p>
+                <p>Prediction Probability: {{ prediction_prob }}%</p>
+            </div>
+        {% endif %}
+
+        <div class="charts">
+            <div class="chart">
+                <h3>MFCCs</h3>
+                {% if fig_mfcc %}{{ fig_mfcc | safe }}{% endif %}
+            </div>
+            <div class="chart">
+                <h3>Chroma</h3>
+                {% if fig_chroma %}{{ fig_chroma | safe }}{% endif %}
+            </div>
+            <div class="chart">
+                <h3>Zero Crossing Rate</h3>
+                {% if fig_zcr %}{{ fig_zcr | safe }}{% endif %}
+            </div>
+            <div class="chart">
+                <h3>RMSE</h3>
+                {% if fig_rmse %}{{ fig_rmse | safe }}{% endif %}
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let mediaRecorder;
+        let audioChunks = [];
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const recordingStatus = document.getElementById('recordingStatus');
+
+        startBtn.onclick = async () => {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+
+            mediaRecorder.onstart = () => {
+                audioChunks = [];
+                recordingStatus.textContent = 'Recording...';
+                stopBtn.disabled = false;
+                startBtn.disabled = true;
+            };
+
+            mediaRecorder.ondataavailable = event => {
+                audioChunks.push(event.data);
+            };
+
+            mediaRecorder.onstop = () => {
+                const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                const file = new File([audioBlob], `voice_${Date.now()}.wav`, {
+                    type: 'audio/wav'
+                });
+
+                const fileInput = document.getElementById('fileInput');
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(file);
+                fileInput.files = dataTransfer.files;
+
+                recordingStatus.textContent = 'Recording complete. File ready for upload.';
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+            };
+
+            mediaRecorder.start();
+        };
+
+        stopBtn.onclick = () => {
+            mediaRecorder.stop();
+        };
+    </script>
+</body>
+</html>
